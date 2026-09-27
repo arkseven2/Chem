@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Chem-Runner: Acid-Base Lab Quest</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+    body {
+      touch-action: manipulation;
+      background-color: #0b0d14;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      touch-action: none;
+    }
+    .pixel-shadow {
+      box-shadow: 0 10px 30px -5px rgba(0, 240, 255, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+    .lab-grid {
+      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-200 flex flex-col items-center justify-center p-3 sm:p-6 lab-grid">
+
+  <!-- Main Game Frame -->
+  <main class="w-full max-w-3xl flex flex-col items-center">
+    
+    <!-- Header with Chemical Info -->
+    <header class="w-full flex items-center justify-between mb-3 px-2">
+      <div class="flex items-center space-x-2">
+        <span class="text-2xl animate-bounce">🧪</span>
+        <div>
+          <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">
+            Chem-Runner: Acid-Base Quest
+          </h1>
+          <p class="text-xs text-slate-400 hidden sm:block">Universal Indicator & Neutralization Simulator</p>
+        </div>
+      </div>
+      
+      <!-- Audio & Sound Toggle -->
+      <button id="soundToggle" class="px-3 py-1.5 text-xs bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg flex items-center gap-1.5 transition text-cyan-400">
+        <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">Sound ON</span>
+      </button>
+    </header>
+
+    <!-- Canvas Wrapper with Custom Border & Glow -->
+    <div class="relative w-full rounded-2xl overflow-hidden pixel-shadow bg-slate-950 border border-cyan-500/20">
+      <canvas id="gameCanvas" width="800" height="300"></canvas>
+
+      <!-- Mobile Touch Jump Overlay Button -->
+      <div id="touchArea" class="absolute inset-0 flex items-end justify-end p-4 pointer-events-auto sm:pointer-events-none">
+        <button id="jumpTouchBtn" class="sm:hidden pointer-events-auto px-5 py-3 rounded-xl bg-cyan-500/20 active:bg-cyan-500/40 border border-cyan-400/40 text-cyan-300 text-xs font-bold backdrop-blur-sm shadow-lg">
+          TAP TO JUMP ⬆
+        </button>
+      </div>
+    </div>
+    <!-- Lab Guide & Scientific Mechanics Card -->
+    <section class="w-full mt-4 bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 sm:p-4 text-xs shadow-lg">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center sm:text-left">
+        
+        <!-- Neutral State -->
+        <div class="flex items-center sm:items-start gap-2.5 p-2 rounded-lg bg-emerald-950/20 border border-emerald-500/20">
+          <div class="w-3.5 h-3.5 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400 mt-0.5 shrink-0"></div>
+          <div>
+            <div class="font-bold text-emerald-300">pH 7 (เป็นกลาง)</div>
+            <div class="text-[11px] text-slate-400">ของเหลวสีเขียว สารคงตัว ต้องกระโดดข้ามสิ่งกีดขวางทุกชนิด</div>
+          </div>
+        </div>
+
+        <!-- Acid State -->
+        <div class="flex items-center sm:items-start gap-2.5 p-2 rounded-lg bg-rose-950/20 border border-rose-500/20">
+          <div class="w-3.5 h-3.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500 mt-0.5 shrink-0"></div>
+          <div>
+            <div class="font-bold text-rose-300">pH 3 (กรดเข้มข้น)</div>
+            <div class="text-[11px] text-slate-400">เก็บ <span class="text-rose-400 font-bold">H⁺</span> ➔ วิ่งชน <span class="text-purple-300 font-bold">แอ่งเบส</span> เพื่อสะเทิน (+50% Yield)</div>
+          </div>
+        </div>
+
+        <!-- Base State -->
+        <div class="flex items-center sm:items-start gap-2.5 p-2 rounded-lg bg-purple-950/20 border border-purple-500/20">
+          <div class="w-3.5 h-3.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500 mt-0.5 shrink-0"></div>
+          <div>
+            <div class="font-bold text-purple-300">pH 11 (เบสแก่)</div>
+            <div class="text-[11px] text-slate-400">เก็บ <span class="text-purple-400 font-bold">OH⁻</span> ➔ วิ่งชน <span class="text-rose-300 font-bold">แอ่งกรด</span> เพื่อสะเทิน (+50% Yield)</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Control Instructions -->
+      <footer class="mt-3 pt-2.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2">
+        <div class="flex items-center gap-2">
+          <span>🎮 <b>ควบคุม:</b></span>
+          <span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200">Spacebar</span>
+          <span class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-slate-200">↑ Arrow</span>
+          <span>หรือแตะหน้าจอบน iPad</span>
+        </div>
+        <div class="text-slate-500">Neutralization: $H^+ + OH^- \rightarrow H_2O + \text{Salt}$</div>
+      </footer>
+    </section>
+
+  </main>
+  <script>
+    // --- Synthesized Sound Effects (No external audio files required) ---
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playJump() {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(540, this.ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.12);
+        } catch(e) {}
+      }
+      playIonPickup(isAcid) {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "triangle";
+          const baseFreq = isAcid ? 440 : 660;
+          osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+          osc.frequency.setValueAtTime(baseFreq * 1.5, this.ctx.currentTime + 0.06);
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.18);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.18);
+        } catch(e) {}
+      }
+      playNeutralize() {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          // Bubbling chord sound
+          const freqs = [523.25, 659.25, 783.99, 1046.50];
+          freqs.forEach((f, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.03);
+            gain.gain.setValueAtTime(0.12, this.ctx.currentTime + i * 0.03);
+            gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.03 + 0.22);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(this.ctx.currentTime + i * 0.03);
+            osc.stop(this.ctx.currentTime + i * 0.03 + 0.22);
+          });
+        } catch(e) {}
+      }
+      playGameOver() {
+        if (!this.enabled || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(55, this.ctx.currentTime + 0.35);
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.35);
+        } catch(e) {}
+      }
+    }
+    const sound = new SoundEngine();
+
+    // Sound toggle button UI
+    const soundToggle = document.getElementById("soundToggle");
+    const soundIcon = document.getElementById("soundIcon");
+    const soundText = document.getElementById("soundText");
+    soundToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sound.init();
+      sound.enabled = !sound.enabled;
+      soundIcon.textContent = sound.enabled ? "🔊" : "🔇";
+      soundText.textContent = sound.enabled ? "Sound ON" : "Sound OFF";
+    });
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Physical World Constants
+    const GROUND_Y = 248;
+    let isGameOver = false;
+    let isGameStarted = false;
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem("chem_high_yield") || "0", 10);
+    let speed = 5.6;
+    let reactionCount = 0;
+
+    // Beaker Player
+    const player = {
+      x: 75,
+      y: GROUND_Y - 48,
+      width: 34,
+      height: 48,
+      vy: 0,
+      gravity: 0.88,
+      jumpStrength: -14.2,
+      isGrounded: true,
+      pH: 7, // 7: Neutral, 3: Acid, 11: Base
+      wobble: 0
+    };
+
+    // Arrays for dynamic world items
+    const obstacles = [];
+    const ions = [];
+    const particles = [];
+    const floatingTexts = [];
+
+    let obsSpawnTimer = 0;
+    let ionSpawnTimer = 0;
+
+    // Color mapper for Universal Indicator
+    function getIndicatorColor(ph) {
+      if (ph < 7) {
+        return {
+          primary: "#f43f5e",     // Rose-500 (Acid)
+          light: "#fda4af",
+          glow: "rgba(244, 63, 94, 0.4)",
+          name: "ACID (กรด)"
+        };
+      }
+      if (ph > 7) {
+        return {
+          primary: "#a855f7",     // Purple-500 (Base)
+          light: "#d8b4fe",
+          glow: "rgba(168, 85, 247, 0.4)",
+          name: "BASE (เบส)"
+        };
+      }
+      return {
+        primary: "#10b981",       // Emerald-500 (Neutral)
+        light: "#6ee7b7",
+        glow: "rgba(16, 185, 129, 0.35)",
+        name: "NEUTRAL (กลาง)"
+      };
+    }
+    function triggerAction() {
+      sound.init();
+
+      if (!isGameStarted) {
+        isGameStarted = true;
+        resetGame();
+        return;
+      }
+
+      if (isGameOver) {
+        resetGame();
+        return;
+      }
+
+      if (player.isGrounded) {
+        player.vy = player.jumpStrength;
+        player.isGrounded = false;
+        sound.playJump();
+      }
+    }
+
+    // Keyboard controls
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        e.preventDefault();
+        triggerAction();
+      }
+    });
+
+    // Touch and pointer controls (iPad and Mobile friendly)
+    window.addEventListener("pointerdown", (e) => {
+      // Don't trigger if tapping the sound button
+      if (e.target.closest("#soundToggle")) return;
+      triggerAction();
+    });
+
+    function resetGame() {
+      isGameOver = false;
+      score = 0;
+      speed = 5.6;
+      reactionCount = 0;
+      player.pH = 7;
+      player.y = GROUND_Y - player.height;
+      player.vy = 0;
+      player.isGrounded = true;
+      obstacles.length = 0;
+      ions.length = 0;
+      particles.length = 0;
+      floatingTexts.length = 0;
+      obsSpawnTimer = 0;
+      ionSpawnTimer = 0;
+    }
+
+    function addFloatingLabel(text, x, y, color = "#22d3ee") {
+      floatingTexts.push({
+        text,
+        x,
+        y,
+        vy: -1.4,
+        alpha: 1.0,
+        color
+      });
+    }
+
+    function spawnNeutralizeFizz(x, y, color) {
+      for (let i = 0; i < 24; i++) {
+        particles.push({
+          x: x + (Math.random() - 0.5) * 36,
+          y: y + (Math.random() - 0.5) * 16,
+          vx: (Math.random() - 0.5) * 4.5,
+          vy: -Math.random() * 4 - 2,
+          radius: Math.random() * 4.5 + 2,
+          color: color,
+          alpha: 1.0
+        });
+      }
+    }
+    function renderBeaker() {
+      const theme = getIndicatorColor(player.pH);
+      player.wobble += 0.08;
+
+      ctx.save();
+      ctx.translate(player.x, player.y);
+
+      // Beaker Fluid Aura
+      ctx.shadowColor = theme.glow;
+      ctx.shadowBlur = 12;
+
+      // Inside Chemical Fluid
+      ctx.fillStyle = theme.primary;
+      const liquidTop = 18;
+      const liquidHeight = player.height - liquidTop - 2;
+      ctx.fillRect(3, liquidTop, player.width - 6, liquidHeight);
+
+      // Meniscus / Liquid surface curve
+      ctx.fillStyle = theme.light;
+      ctx.beginPath();
+      ctx.ellipse(player.width / 2, liquidTop + 1, (player.width - 6) / 2, 2.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Clear Shadow for Glass Outline
+      ctx.shadowBlur = 0;
+
+      // Glass Body Outline
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      // Left rim spout
+      ctx.moveTo(-3, 0);
+      ctx.lineTo(player.width + 3, 0);
+      // Walls and base
+      ctx.stroke();
+
+      ctx.strokeRect(0, 0, player.width, player.height);
+
+      // Volume Measurement Markings (Scale)
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < 3; i++) {
+        const markY = 24 + i * 8;
+        ctx.beginPath();
+        ctx.moveTo(player.width - 12, markY);
+        ctx.lineTo(player.width - 3, markY);
+        ctx.stroke();
+      }
+
+      // Cute Eyes on the Beaker
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(8, 22, 4, 6);
+      ctx.fillRect(18, 22, 4, 6);
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(10, 24, 2, 4);
+      ctx.fillRect(20, 24, 2, 4);
+
+      // Little bubbles inside the liquid
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      const bY1 = 30 + Math.sin(player.wobble) * 2;
+      const bY2 = 36 + Math.cos(player.wobble) * 2;
+      ctx.beginPath();
+      ctx.arc(8, bY1, 1.8, 0, Math.PI * 2);
+      ctx.arc(15, bY2, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // pH Label Floating Over Beaker
+      ctx.font = "bold 11px monospace";
+      ctx.fillStyle = theme.primary;
+      ctx.textAlign = "center";
+      ctx.fillText(`pH ${player.pH}`, player.width / 2, -7);
+
+      ctx.restore();
+    }
+    function renderObstacles() {
+      for (let i = 0; i < obstacles.length; i++) {
+        const obs = obstacles[i];
+        if (obs.neutralized) continue;
+
+        ctx.save();
+        const isAcid = obs.type === 'acid';
+        const spillColor = isAcid ? "#f43f5e" : "#a855f7";
+
+        // Spill puddle on ground
+        ctx.fillStyle = spillColor;
+        ctx.beginPath();
+        ctx.ellipse(obs.x + obs.width / 2, GROUND_Y - 2, obs.width / 2, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Corrosive Spikes / Bubbling Vapor Cone
+        ctx.fillStyle = isAcid ? "rgba(244, 63, 94, 0.75)" : "rgba(168, 85, 247, 0.75)";
+        ctx.beginPath();
+        ctx.moveTo(obs.x + 4, GROUND_Y - 3);
+        ctx.lineTo(obs.x + obs.width / 2, obs.y + 4);
+        ctx.lineTo(obs.x + obs.width - 4, GROUND_Y - 3);
+        ctx.fill();
+
+        // Chemical Warning Icon / Label
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(isAcid ? "H⁺ Acid" : "OH⁻ Base", obs.x + obs.width / 2, obs.y - 4);
+
+        ctx.restore();
+      }
+    }
+
+    function renderIons() {
+      for (let i = 0; i < ions.length; i++) {
+        const ion = ions[i];
+        ctx.save();
+        const isH = ion.type === 'H+';
+        const color = isH ? "#f43f5e" : "#a855f7";
+
+        // Ambient Orb Glow
+        ctx.beginPath();
+        ctx.arc(ion.x, ion.y, ion.radius, 0, Math.PI * 2);
+        ctx.fillStyle = isH ? "rgba(244, 63, 94, 0.2)" : "rgba(168, 85, 247, 0.2)";
+        ctx.fill();
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = color;
+        ctx.stroke();
+
+        // Ion Formula Text
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(ion.type, ion.x, ion.y);
+
+        ctx.restore();
+      }
+    }
+    function renderParticlesAndText() {
+      // Neutralization fizz bubbles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.024;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+
+      // Floating Score / Reactions Texts
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y += ft.vy;
+        ft.alpha -= 0.02;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 12px monospace";
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.restore();
+
+        if (ft.alpha <= 0) floatingTexts.splice(i, 1);
+      }
+    }
+    function updatePhysics() {
+      // Beaker Gravity and Jumping
+      player.vy += player.gravity;
+      player.y += player.vy;
+      if (player.y >= GROUND_Y - player.height) {
+        player.y = GROUND_Y - player.height;
+        player.vy = 0;
+        player.isGrounded = true;
+      }
+
+      // Spawn Floating Ions (H+ and OH-)
+      ionSpawnTimer++;
+      if (ionSpawnTimer > Math.random() * 55 + 50) {
+        const type = Math.random() < 0.5 ? 'H+' : 'OH-';
+        const yPos = Math.random() < 0.5 ? GROUND_Y - 35 : GROUND_Y - 95;
+        ions.push({ x: canvas.width + 25, y: yPos, radius: 14, type });
+        ionSpawnTimer = 0;
+      }
+
+      // Process Floating Ions
+      for (let i = ions.length - 1; i >= 0; i--) {
+        const ion = ions[i];
+        ion.x -= speed;
+
+        // Collision Check with Player Beaker
+        const dx = (player.x + player.width / 2) - ion.x;
+        const dy = (player.y + player.height / 2) - ion.y;
+        if (Math.hypot(dx, dy) < ion.radius + player.width / 2) {
+          if (ion.type === 'H+') {
+            player.pH = 3;
+            sound.playIonPickup(true);
+            addFloatingLabel("⚡ pH ➔ 3 (Acidified)", player.x, player.y - 15, "#f43f5e");
+          } else {
+            player.pH = 11;
+            sound.playIonPickup(false);
+            addFloatingLabel("⚡ pH ➔ 11 (Basified)", player.x, player.y - 15, "#c084fc");
+          }
+          ions.splice(i, 1);
+          continue;
+        }
+
+        if (ion.x + ion.radius < 0) ions.splice(i, 1);
+      }
+
+      // Spawn Chemical Spills Obstacles
+      obsSpawnTimer++;
+      if (obsSpawnTimer > Math.random() * 65 + 75) {
+        const type = Math.random() < 0.5 ? 'acid' : 'base';
+        obstacles.push({
+          x: canvas.width,
+          y: GROUND_Y - 32,
+          width: 36,
+          height: 32,
+          type: type,
+          neutralized: false
+        });
+        obsSpawnTimer = 0;
+      }
+
+      // Process Obstacles & Neutralization
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        const obs = obstacles[i];
+        obs.x -= speed;
+
+        const margin = 5;
+        const isColliding = (
+          player.x + margin < obs.x + obs.width - margin &&
+          player.x + player.width - margin > obs.x + margin &&
+          player.y + margin < obs.y + obs.height &&
+          player.y + player.height > obs.y + margin
+        );
+
+        if (isColliding && !obs.neutralized) {
+          const canNeutralizeAcid = (obs.type === 'acid' && player.pH > 7);
+          const canNeutralizeBase = (obs.type === 'base' && player.pH < 7);
+
+          if (canNeutralizeAcid || canNeutralizeBase) {
+            // Success Neutralization Reaction!
+            obs.neutralized = true;
+            player.pH = 7; // Neutralized back to green
+            score += 50;
+            reactionCount++;
+            sound.playNeutralize();
+            spawnNeutralizeFizz(obs.x + obs.width / 2, obs.y + 10, obs.type === 'acid' ? "#38bdf8" : "#a855f7");
+            addFloatingLabel("✨ NEUTRALIZED! H⁺ + OH⁻ ➔ H₂O (+50% Yield)", obs.x - 30, obs.y - 20, "#34d399");
+          } else {
+            // Lab Disaster / Game Over
+            isGameOver = true;
+            sound.playGameOver();
+            if (score > highScore) {
+              highScore = Math.floor(score);
+              localStorage.setItem("chem_high_yield", highScore.toString());
+            }
+          }
+        }
+
+        if (obs.x + obs.width < 0) obstacles.splice(i, 1);
+      }
+
+      // Yield Score & Gradual Speed Acceleration
+      score += 0.08;
+      speed += 0.0006;
+    }
+    function renderLabEnvironment() {
+      // Lab Bench Surface
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y);
+      ctx.lineTo(canvas.width, GROUND_Y);
+      ctx.stroke();
+
+      // Bench measurement ticks
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 25) {
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND_Y);
+        ctx.lineTo(x, GROUND_Y + 7);
+        ctx.stroke();
+      }
+    }
+
+    function renderHUD() {
+      // Yield Counter (Score)
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = "bold 15px monospace";
+      ctx.fillText(`🧪 Yield: ${Math.floor(score)}%`, 20, 30);
+
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px monospace";
+      ctx.fillText(`High Yield: ${highScore}% | Rxns: ${reactionCount}`, 20, 50);
+
+      // Current Chemical Status Badge
+      const theme = getIndicatorColor(player.pH);
+      ctx.textAlign = "right";
+      ctx.fillStyle = theme.primary;
+      ctx.font = "bold 14px monospace";
+      ctx.fillText(`Status: [ ${theme.name} ]`, canvas.width - 20, 30);
+
+      // Universal Indicator Mini Bar
+      const barW = 100;
+      const barH = 5;
+      const barX = canvas.width - barW - 20;
+      const barY = 38;
+      const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+      grad.addColorStop(0, "#f43f5e");
+      grad.addColorStop(0.5, "#10b981");
+      grad.addColorStop(1, "#a855f7");
+      ctx.fillStyle = grad;
+      ctx.fillRect(barX, barY, barW, barH);
+    }
+
+    function renderOverlays() {
+      if (!isGameStarted) {
+        ctx.fillStyle = "rgba(11, 13, 20, 0.85)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 24px monospace";
+        ctx.fillText("🧪 Chem-Runner: Lab Escape", canvas.width / 2, 105);
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "14px monospace";
+        ctx.fillText("กระโดดเก็บ H⁺ และ OH⁻ เพื่อควบคุมค่า pH สะเทินแอ่งสารเคมี", canvas.width / 2, 140);
+
+        ctx.fillStyle = "#34d399";
+        ctx.font = "bold 15px monospace";
+        ctx.fillText("👉 แตะหน้าจอ หรือกด [ Spacebar ] เพื่อเริ่มทดลอง 👈", canvas.width / 2, 190);
+        return;
+      }
+
+      if (isGameOver) {
+        ctx.fillStyle = "rgba(11, 13, 20, 0.9)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#f43f5e";
+        ctx.font = "bold 25px monospace";
+        ctx.fillText("💥 REACTION EXPLODED! (Lab Evacuated) 💥", canvas.width / 2, 95);
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 18px monospace";
+        ctx.fillText(`Final Yield: ${Math.floor(score)}% | Reactions: ${reactionCount}`, canvas.width / 2, 135);
+
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "13px monospace";
+        ctx.fillText("คำแนะนำ: ต้องเก็บประจุตรงข้ามเพื่อสะเทินสาร (กรดชนเบส / เบสชนกรด)", canvas.width / 2, 168);
+
+        ctx.fillStyle = "#f1f5f9";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText("แตะหน้าจอ หรือกด [ Spacebar ] เพื่อเริ่มปฏิกิริยาใหม่", canvas.width / 2, 210);
+      }
+    }
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      renderLabEnvironment();
+
+      if (isGameStarted && !isGameOver) {
+        updatePhysics();
+      }
+
+      renderObstacles();
+      renderIons();
+      renderBeaker();
+      renderParticlesAndText();
+      renderHUD();
+      renderOverlays();
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start the animation loop when window loads
+    window.onload = function() {
+      gameLoop();
+    };
+  </script>
+</body>
+</html>
